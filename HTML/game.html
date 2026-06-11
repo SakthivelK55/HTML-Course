@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LineShift - Strategy Board Game</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0f172a, #111827);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      padding: 20px;
+    }
+
+    .game-container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 25px;
+    }
+
+    h1 {
+      font-size: 52px;
+      color: #38bdf8;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+
+    .subtitle {
+      color: #cbd5e1;
+      text-align: center;
+      max-width: 700px;
+      line-height: 1.6;
+    }
+
+    .status {
+      background: rgba(255,255,255,0.08);
+      padding: 15px 30px;
+      border-radius: 15px;
+      font-size: 22px;
+      font-weight: bold;
+      text-align: center;
+      min-width: 350px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .board {
+      width: 420px;
+      height: 420px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 12px;
+      background: rgba(255,255,255,0.05);
+      padding: 12px;
+      border-radius: 25px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+
+    .cell {
+      background: #1e293b;
+      border-radius: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: 0.2s ease;
+      position: relative;
+      border: 2px solid transparent;
+    }
+
+    .cell:hover {
+      background: #334155;
+      transform: scale(1.03);
+    }
+
+    .piece {
+      border-radius: 50%;
+      transition: 0.2s ease;
+    }
+
+    .green {
+      width: 65px;
+      height: 65px;
+      background: #22c55e;
+      box-shadow: 0 0 15px rgba(34,197,94,0.5);
+    }
+
+    .red {
+      width: 82px;
+      height: 82px;
+      background: #ef4444;
+      box-shadow: 0 0 15px rgba(239,68,68,0.5);
+    }
+
+    .selected {
+      border: 3px solid yellow;
+      box-shadow: 0 0 15px yellow;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .restart-btn {
+      background: #38bdf8;
+      color: black;
+    }
+
+    .restart-btn:hover {
+      background: #0ea5e9;
+      transform: translateY(-2px);
+    }
+
+    .rules {
+      background: rgba(255,255,255,0.05);
+      padding: 20px;
+      border-radius: 20px;
+      max-width: 700px;
+      line-height: 1.8;
+      color: #cbd5e1;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .phase {
+      color: #facc15;
+    }
+
+    .winner {
+      color: #4ade80;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 40px;
+      }
+
+      .board {
+        width: 95vw;
+        height: 95vw;
+      }
+
+      .green {
+        width: 50px;
+        height: 50px;
+      }
+
+      .red {
+        width: 65px;
+        height: 65px;
+      }
+
+      .status {
+        min-width: auto;
+        width: 100%;
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+
+    <h1>LineShift</h1>
+
+    <p class="subtitle">
+      Place your 3 pieces first. After placement phase, move only one step
+      (up, down, left, right). Make a full row or column to win.
+    </p>
+
+    <div class="status" id="status"></div>
+
+    <div class="board" id="board"></div>
+
+    <div class="controls">
+      <button class="restart-btn" onclick="restartGame()">Play Again</button>
+    </div>
+
+    <div class="rules">
+      <h2 style="margin-bottom:10px;color:#38bdf8;">Game Rules:</h2>
+
+      <ul style="padding-left:20px;">
+        <li>Green Player uses small pieces.</li>
+        <li>Red Player uses big pieces.</li>
+        <li>Each player has 3 pieces.</li>
+        <li>Players place pieces one by one.</li>
+        <li>After all 6 pieces are placed, movement phase starts.</li>
+        <li>You can move only ONE step: Up, Down, Left, Right.</li>
+        <li>Make 3 pieces in a row or column to win the game.</li>
+        
+        
+
+      </ul>
+    </div>
+
+  </div>
+
+<script>
+
+const boardElement = document.getElementById('board');
+const statusElement = document.getElementById('status');
+
+let board = Array(9).fill(null);
+
+let currentPlayer = 'G';
+let placementPhase = true;
+let selectedPiece = null;
+let gameOver = false;
+
+let piecesPlaced = {
+  G: 0,
+  R: 0
+};
+
+const winningCombinations = [
+  [0,1,2],
+  [3,4,5],
+  [6,7,8],
+  [0,3,6],
+  [1,4,7],
+  [2,5,8]
+];
+
+function createBoard() {
+
+  boardElement.innerHTML = '';
+
+  board.forEach((cell, index) => {
+
+    const cellElement = document.createElement('div');
+    cellElement.classList.add('cell');
+
+    if(selectedPiece === index) {
+      cellElement.classList.add('selected');
+    }
+
+    cellElement.addEventListener('click', () => handleClick(index));
+
+    if(cell) {
+      const piece = document.createElement('div');
+      piece.classList.add('piece');
+
+      if(cell === 'G') {
+        piece.classList.add('green');
+      } else {
+        piece.classList.add('red');
+      }
+
+      cellElement.appendChild(piece);
+    }
+
+    boardElement.appendChild(cellElement);
+  });
+
+  updateStatus();
+}
+
+function updateStatus() {
+
+  if(gameOver) return;
+
+  const playerName = currentPlayer === 'G' ? 'Green Player' : 'Red Player';
+
+  if(placementPhase) {
+    statusElement.innerHTML = `${playerName} Turn <span class="phase">(Placement Phase)</span>`;
+  } else {
+    statusElement.innerHTML = `${playerName} Turn <span class="phase">(Movement Phase)</span>`;
+  }
+}
+
+function handleClick(index) {
+
+  if(gameOver) return;
+
+  // Placement Phase
+  if(placementPhase) {
+
+    if(board[index] !== null) return;
+
+    board[index] = currentPlayer;
+    piecesPlaced[currentPlayer]++;
+
+    if(piecesPlaced.G === 3 && piecesPlaced.R === 3) {
+      placementPhase = false;
+    }
+
+    switchPlayer();
+    createBoard();
+
+    return;
+  }
+
+  // Movement Phase
+
+  // Select own piece
+  if(board[index] === currentPlayer) {
+    selectedPiece = index;
+    createBoard();
+    return;
+  }
+
+  // Move selected piece
+  if(selectedPiece !== null && board[index] === null) {
+
+    if(isValidMove(selectedPiece, index)) {
+
+      board[index] = currentPlayer;
+      board[selectedPiece] = null;
+
+      selectedPiece = null;
+
+      createBoard();
+
+      if(checkWinner(currentPlayer)) {
+
+        const winner = currentPlayer === 'G'
+          ? '🎉 Green Player Wins!'
+          : '🎉 Red Player Wins!';
+
+        statusElement.innerHTML = `<span class="winner">${winner}</span>`;
+
+        gameOver = true;
+        return;
+      }
+
+      switchPlayer();
+      createBoard();
+    }
+  }
+}
+
+function isValidMove(from, to) {
+
+  const fromRow = Math.floor(from / 3);
+  const fromCol = from % 3;
+
+  const toRow = Math.floor(to / 3);
+  const toCol = to % 3;
+
+  const rowDiff = Math.abs(fromRow - toRow);
+  const colDiff = Math.abs(fromCol - toCol);
+
+  return (
+    (rowDiff === 1 && colDiff === 0) ||
+    (rowDiff === 0 && colDiff === 1)
+  );
+}
+
+function checkWinner(player) {
+
+  return winningCombinations.some(combo => {
+    return combo.every(index => board[index] === player);
+  });
+}
+
+function switchPlayer() {
+  currentPlayer = currentPlayer === 'G' ? 'R' : 'G';
+}
+
+function restartGame() {
+
+  board = Array(9).fill(null);
+
+  currentPlayer = 'G';
+  placementPhase = true;
+  selectedPiece = null;
+  gameOver = false;
+
+  piecesPlaced = {
+    G: 0,
+    R: 0
+  };
+
+  createBoard();
+}
+
+createBoard();
+
+</script>
+
+</body>
+</html>
